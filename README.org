@@ -1,0 +1,8 @@
+* About
+This is a modified version of [[https://gist.github.com/ekisu/bba287693830055a6bad90081c1ad4e2][this gist]]. It allows mpv to handle/stream magnet links directly using peerflix. The reason you might want to do this over using ~peerflix~ directly is that with this, you can start mpv with a playlist of multiple magnet links or add magnet links to the playlist of an already open mpv window (e.g. using one of the scripts that allow appending a link from the clipboard to the playlist).
+
+Functional differences from the original:
+- Works correctly even if another peerflix instance is already using port 8888
+- Kills the correct peerflix instance when finished instead of killing all peerflix processes
+- Doesn't try to look for a local peerflix binary
+- No option to use the =--remove= (=-r=) flag (since it [[https://github.com/mafintosh/peerflix/pull/332][doesn't really work]])
