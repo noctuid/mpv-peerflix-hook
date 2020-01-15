@@ -48,7 +48,7 @@ function play_magnet()
       -- --remove is broken; https://github.com/mafintosh/peerflix/pull/332
       local peerflix_command = "peerflix --remove --quiet --port "
          .. port .. " --on-listening 'touch /tmp/peerflix-"
-         .. port .. ".lock' " .. url ..  " &"
+         .. port .. ".lock' '" .. url ..  "' &"
       os.execute(peerflix_command)
 
       mp.msg.info("Waiting for server")
