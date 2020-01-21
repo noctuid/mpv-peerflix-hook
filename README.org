@@ -1,8 +1,27 @@
 * About
-This is a modified version of [[https://gist.github.com/ekisu/bba287693830055a6bad90081c1ad4e2][this gist]]. It allows mpv to handle/stream magnet links directly using peerflix. The reason you might want to do this over using ~peerflix~ directly is that with this, you can start mpv with a playlist of multiple magnet links or add magnet links to the playlist of an already open mpv window (e.g. using one of the scripts that allow appending a link from the clipboard to the playlist).
+This is a modified version of [[https://gist.github.com/ekisu/bba287693830055a6bad90081c1ad4e2][this gist]]. It allows mpv to handle/stream magnet links directly using peerflix.
 
-Functional differences from the original:
+One reason you might want to do this over using ~peerflix~ directly is that with this, you can start mpv with a playlist of multiple magnet links or add magnet links to the playlist of an already open mpv window (e.g. using one of the scripts that allow appending a link from the clipboard to the playlist).
+
+Another reason you might want to use this script is that it can remove the videos after they are done playing, so they don't stick around and completely fill up =/tmp=. Peerflix has a =--remove= flag, but it is broken (see the link below).
+
+This script does not change any configuration/flags by default. Peerflix adds =--ontop= by default (which I personally find annoying). You can disable this by adding =--no-ontop=, so this isn't really an advantage just a difference. By using this script, you can also see mpv output (which is hidden when calling ~peerflix~ directly). On the other hand, you won't see the normal ~peerflix~ output using this script.
+
+Functional differences from the original script:
 - Works correctly even if another peerflix instance is already using port 8888
 - Kills the correct peerflix instance when finished instead of killing all peerflix processes
 - Doesn't try to look for a local peerflix binary
-- No option to use the =--remove= (=-r=) flag (since it [[https://github.com/mafintosh/peerflix/pull/332][doesn't really work]])
+- Doesn't use the =--remove= (=-r=) flag (since it [[https://github.com/mafintosh/peerflix/pull/332][doesn't really work]]); optionally removes videos that are not open instead
+
+Requirements:
+- peerflix
+- bash
+- lsof
+
+* Configuration
+In =~/.config/mpv/script-opts/peerflix-hook.conf=, you can change the following settings:
+- =kill_peerflix= - whether to kill peerflix after finishing the video; peerflix will keep running if you set this to =no=, so only change this if you want to handle closing peerflix yourself (default: =yes=)
+- =remove_files= - whether to remove any videos files that are not being used after finishing the video; if this is =yes=, =kill_peerflix= must also be =yes= for it to work (default: =yes=)
+- =peerflix_directory= - directory where videos are stored; I haven't checked if this ever needs to be changed; the default may always be correct (default: =/tmp/torrent-stream=)
+
+You probably won't want to change any of these settings unless you want to keep downloaded videos (in which case, you can set =remove_files= to =no=).

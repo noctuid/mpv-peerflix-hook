@@ -4,7 +4,14 @@
 -- peerflix will automatically choose a different port, but there's not a great
 -- way to actually determine what port it picked, so explicitly set it
 
-used_ports = {}
+local used_ports = {}
+local settings = {
+   kill_peerflix = true,
+   remove_files = true,
+   peerflix_directory = "/tmp/torrent-stream"
+}
+
+(require "mp.options").read_options(settings, "peerflix-hook")
 
 function port_is_open(port)
    return os.execute("lsof -i :" .. port) ~= 0
@@ -30,13 +37,13 @@ until [ -f %s ]; do
 done
 rm %s
 ]], file, file)
-   os.execute("echo '" .. script .. "' | bash -")
+   os.execute("bash -c '" .. script .. "'")
 end
 
 function play_magnet()
    local url = mp.get_property("stream-open-filename")
-   if (url:find("magnet:") == 1)  or (url:find("peerflix://") == 1) then
-      if (url:find("peerflix://") == 1) then
+   if url:find("magnet:") == 1  or url:find("peerflix://") == 1 then
+      if url:find("peerflix://") == 1 then
          url = url:sub(12)
       end
 
@@ -46,25 +53,41 @@ function play_magnet()
       mp.msg.info("Starting peerflix")
       -- utils.subprocess can't execute peerflix without blocking
       -- --remove is broken; https://github.com/mafintosh/peerflix/pull/332
-      local peerflix_command = "peerflix --remove --quiet --port "
+      local peerflix_command = "peerflix --quiet --port "
          .. port .. " --on-listening 'touch /tmp/peerflix-"
          .. port .. ".lock' '" .. url ..  "' &"
       os.execute(peerflix_command)
 
-      mp.msg.info("Waiting for server")
+      mp.msg.info("Waiting for peerflix server")
       wait_for_peerflix(port)
 
-      mp.msg.info("Server is up")
+      mp.msg.info("Peerflix server is up")
       mp.set_property("stream-open-filename", "http://localhost:" .. port)
    end
 end
 
 function peerflix_cleanup()
-   mp.msg.info("cleaningup")
-   for _, port in ipairs(used_ports) do
-      mp.msg.info(tostring(port))
-      cmd = "lsof -i :".. port .. " | awk '$1 == \"peerflix\" {system(\"kill \" $2)}'"
+   local url = mp.get_property("stream-open-filename")
+   if settings.kill_peerflix and url:find("http://localhost:") == 1 then
+      mp.msg.info("Closing peerflix")
+      local port = url:sub(18)
+      cmd = "lsof -i :" .. port
+         .. " | awk '$1 == \"peerflix\" {system(\"kill \" $2)}'"
       os.execute(cmd)
+   end
+   local script = string.format([[
+shopt -s nullglob dotglob
+videos=(%s/**/*)
+for video in "${videos[@]}"; do
+    if ! lsof "$video" &> /dev/null; then
+        rm "$video"
+    fi
+done
+shopt -u nullglob dotglob
+]], settings.peerflix_directory)
+   if settings.kill_peerflix and settings.remove_files then
+      mp.msg.info("Removing peerflix video file")
+      os.execute("bash -c '" .. script .. "'")
    end
 end
 
