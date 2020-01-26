@@ -4,7 +4,6 @@
 -- peerflix will automatically choose a different port, but there's not a great
 -- way to actually determine what port it picked, so explicitly set it
 
-local used_ports = {}
 local settings = {
    kill_peerflix = true,
    remove_files = true,
@@ -48,7 +47,6 @@ function play_magnet()
       end
 
       local port = get_open_port()
-      table.insert(used_ports, port)
 
       mp.msg.info("Starting peerflix")
       -- utils.subprocess can't execute peerflix without blocking
@@ -66,28 +64,42 @@ function play_magnet()
    end
 end
 
+function port_is_peerflix_port(port)
+   -- on success, os.execute returns 0 on lua 5.1 and true on 5.2
+   local success_values = {}
+   success_values[0] = true
+   success_values[true] = true
+   -- could store ports used by peerflix, but user could have called peerflix
+   -- directly; check with lsof instead
+   cmd = "lsof -i :" .. port .. " | grep --quiet peerflix"
+   return success_values[os.execute(cmd)]
+end
+
 function peerflix_cleanup()
    local url = mp.get_property("stream-open-filename")
-   if settings.kill_peerflix and url:find("http://localhost:") == 1 then
+   local port = url:sub(18)
+   if (settings.kill_peerflix and url:find("http://localhost:") == 1
+       and port_is_peerflix_port(port)) then
       mp.msg.info("Closing peerflix")
-      local port = url:sub(18)
       cmd = "lsof -i :" .. port
          .. " | awk '$1 == \"peerflix\" {system(\"kill \" $2)}'"
       os.execute(cmd)
-   end
-   local script = string.format([[
+      local script = string.format([[
 shopt -s nullglob dotglob
 videos=(%s/**/*)
-for video in "${videos[@]}"; do
-    if ! lsof "$video" &> /dev/null; then
-        rm "$video"
-    fi
-done
+if (( ${#videos[*]} )); then
+    for video in "${videos[@]}"; do
+        if ! lsof "$video" &> /dev/null; then
+            rm "$video"
+        fi
+    done
+fi
 shopt -u nullglob dotglob
 ]], settings.peerflix_directory)
-   if settings.kill_peerflix and settings.remove_files then
-      mp.msg.info("Removing peerflix video file")
-      os.execute("bash -c '" .. script .. "'")
+      if settings.remove_files then
+         mp.msg.info("Removing unused peerflix video files")
+         os.execute("bash -c '" .. script .. "'")
+      end
    end
 end
 
