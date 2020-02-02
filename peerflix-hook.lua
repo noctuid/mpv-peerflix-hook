@@ -39,6 +39,50 @@ rm %s
    os.execute("bash -c '" .. script .. "'")
 end
 
+-- https://stackoverflow.com/questions/132397/get-back-the-output-of-os-execute-in-lua
+function os.capture(cmd, raw)
+   local f = assert(io.popen(cmd, 'r'))
+   local s = assert(f:read('*a'))
+   f:close()
+   if raw then return s end
+   s = string.gsub(s, '^%s+', '')
+   s = string.gsub(s, '%s+$', '')
+   -- s = string.gsub(s, '[\n\r]+', ' ')
+   return s
+end
+
+function get_video_name(port, basename)
+   local cmd = "lsof -i :" .. port
+      .. " | awk '$1 == \"peerflix\" {print $2; exit}'"
+   local peerflix_pid = os.capture(cmd)
+   if peerflix_pid == "" then return nil end
+   local script = string.format([[
+peerflix_dir=%s
+pid=%s
+
+files=
+count=0
+sleep=0.2
+max_retries=50
+while [ -z "$files" ]; do
+    files=$(lsof -a +D "$peerflix_dir" -p "$pid" -Fn)
+    if [ $count -gt $max_retries ]; then
+        exit 1
+    fi
+    ((count=count+1))
+    sleep "$sleep"
+done
+
+echo "$files" | sed -n 's:^n.*/::p'
+]], settings.peerflix_directory, peerflix_pid)
+   local name = os.capture("bash -c '" .. script .. "'")
+   if name == "" then
+      return nil
+   else
+      return name
+   end
+end
+
 function play_magnet()
    local url = mp.get_property("stream-open-filename")
    if url:find("magnet:") == 1  or url:find("peerflix://") == 1 then
@@ -60,6 +104,12 @@ function play_magnet()
       wait_for_peerflix(port)
 
       mp.msg.info("Peerflix server is up")
+
+      local title = get_video_name(port)
+      if title then
+         mp.set_property("force-media-title", title)
+      end
+
       mp.set_property("stream-open-filename", "http://localhost:" .. port)
    end
 end
@@ -71,7 +121,7 @@ function port_is_peerflix_port(port)
    success_values[true] = true
    -- could store ports used by peerflix, but user could have called peerflix
    -- directly; check with lsof instead
-   cmd = "lsof -i :" .. port .. " | grep --quiet peerflix"
+   local cmd = "lsof -i :" .. port .. " | grep --quiet peerflix"
    return success_values[os.execute(cmd)]
 end
 
@@ -81,7 +131,7 @@ function peerflix_cleanup()
    if (settings.kill_peerflix and url:find("http://localhost:") == 1
        and port_is_peerflix_port(port)) then
       mp.msg.info("Closing peerflix")
-      cmd = "lsof -i :" .. port
+      local cmd = "lsof -i :" .. port
          .. " | awk '$1 == \"peerflix\" {system(\"kill \" $2)}'"
       os.execute(cmd)
       local script = string.format([[

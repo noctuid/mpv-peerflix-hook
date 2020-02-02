@@ -10,10 +10,12 @@ This script does not change any configuration/flags by default. Peerflix adds =-
 Functional differences from the original script:
 - Works correctly even if another peerflix instance is already using port 8888
 - Kills the correct peerflix instance when finished instead of killing all peerflix processes
+- Sets the media title of the video to the filename
 - Doesn't try to look for a local peerflix binary
 - Doesn't use the =--remove= (=-r=) flag (since it [[https://github.com/mafintosh/peerflix/pull/332][doesn't really work]]); optionally removes videos that are not open instead
 
 Requirements:
+- on linux (or maybe similar)
 - peerflix
 - bash
 - lsof
