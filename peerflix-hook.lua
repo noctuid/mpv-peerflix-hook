@@ -12,8 +12,18 @@ local settings = {
 
 (require "mp.options").read_options(settings, "peerflix-hook")
 
+
+-- on success, os.execute returns 0 on lua 5.1 and true on 5.2
+local success_values = {}
+success_values[0] = true
+success_values[true] = true
+
+function cmd_succeeds(cmd)
+   return success_values[os.execute(cmd)]
+end
+
 function port_is_open(port)
-   return os.execute("lsof -i :" .. port) ~= 0
+   return not cmd_succeeds("lsof -i :" .. port .. " &> /dev/null")
 end
 
 function get_open_port()
@@ -92,12 +102,14 @@ function play_magnet()
 
       local port = get_open_port()
 
-      mp.msg.info("Starting peerflix")
+      mp.msg.info("Starting peerflix on port " .. port)
+      -- delete an old lock file that could be hanging around
+      os.remove('/tmp/peerflix-' .. port .. ".lock")
       -- utils.subprocess can't execute peerflix without blocking
       -- --remove is broken; https://github.com/mafintosh/peerflix/pull/332
       local peerflix_command = "peerflix --quiet --port "
          .. port .. " --on-listening 'touch /tmp/peerflix-"
-         .. port .. ".lock' '" .. url ..  "' &"
+         .. port .. ".lock' '" .. url ..  "' > /dev/null &"
       os.execute(peerflix_command)
 
       mp.msg.info("Waiting for peerflix server")
@@ -107,6 +119,7 @@ function play_magnet()
 
       local title = get_video_name(port)
       if title then
+         mp.msg.info("Setting media title to: " .. title)
          mp.set_property("force-media-title", title)
       end
 
@@ -115,14 +128,9 @@ function play_magnet()
 end
 
 function port_is_peerflix_port(port)
-   -- on success, os.execute returns 0 on lua 5.1 and true on 5.2
-   local success_values = {}
-   success_values[0] = true
-   success_values[true] = true
    -- could store ports used by peerflix, but user could have called peerflix
-   -- directly; check with lsof instead
-   local cmd = "lsof -i :" .. port .. " | grep --quiet peerflix"
-   return success_values[os.execute(cmd)]
+   -- directly; check with lsof instead to be certain
+   return cmd_succeeds("lsof -i :" .. port .. " | grep --quiet peerflix")
 end
 
 function peerflix_cleanup()
