@@ -1,3 +1,6 @@
+* Disclaimer
+I recommend using [[https://github.com/noctuid/mpv-webtorrent-hook][mpv-webtorrent-hook]] instead.
+
 * About
 This is a modified version of [[https://gist.github.com/ekisu/bba287693830055a6bad90081c1ad4e2][this gist]]. It allows mpv to handle/stream magnet links directly using peerflix.
 
